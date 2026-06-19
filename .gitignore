@@ -1,0 +1,46 @@
+# ---------- Node / npm ----------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------- Electron / electron-builder ----------
+release/
+dist/
+out/
+*.app
+*.dmg
+*.exe
+*.exe.blockmap
+*.nupkg
+*.snap
+*.AppImage
+*.deb
+*.rpm
+latest*.yml
+builder-debug.yml
+builder-effective-config.yaml
+
+# Кеш electron-builder
+~/
+.cache/
+
+# ---------- IDE / OS ----------
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- Логи / временные ----------
+*.log
+electron-run.log
+nul
+
+# ---------- Локальные секреты / данные ----------
+accounts.json
+*.bak
+config.json.bak

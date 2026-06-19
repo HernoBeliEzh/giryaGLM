@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:;" />
+  <title>ГиряGLM</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <div class="logo-mark">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <!-- ручка гири -->
+            <path d="M9 6.5c0-1.1.9-2 1.5-2h3c.6 0 1.5.9 1.5 2 0 1-.8 1.6-1.4 1.8" />
+            <path d="M10.6 8.3c-.6.2-1.6.8-1.6 1.9" />
+            <!-- тело гири -->
+            <path d="M7 11h10c.6 0 1 .4 1 1v6.5c0 1.1-.9 2-2 2H8c-1.1 0-2-.9-2-2V12c0-.6.4-1 1-1z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="title">ГиряGLM</h1>
+          <p class="subtitle">Переключение аккаунтов ZCode · GLM-5.2 / GLM-5-Turbo</p>
+        </div>
+      </div>
+
+      <button class="status-pill" id="zcodeStatus" title="Состояние ZCode">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">проверка…</span>
+      </button>
+    </header>
+
+    <!-- Toolbar -->
+    <section class="toolbar">
+      <button id="importBtn" class="btn btn-glass">
+        <span class="icon">↓</span> Импорт текущего
+      </button>
+      <button id="toggleManualBtn" class="btn btn-ghost">
+        <span class="icon">＋</span> Вставить токен
+      </button>
+      <div class="spacer"></div>
+      <button id="refreshBtn" class="btn btn-icon" title="Обновить">⟳</button>
+    </section>
+
+    <!-- Manual form (collapsible) -->
+    <div id="manualForm" class="manual-form collapsed">
+      <div class="manual-inner">
+        <input id="jwtInput" type="text" placeholder="Вставьте сюда JWT (apiKey)…" spellcheck="false" autocomplete="off" />
+        <input id="labelInput" type="text" placeholder="Имя (необязательно)" spellcheck="false" autocomplete="off" />
+        <button id="addManualBtn" class="btn btn-primary">Добавить</button>
+      </div>
+    </div>
+
+    <!-- Accounts -->
+    <main class="content" id="content">
+      <div class="accounts-list" id="accountsList">
+        <!-- cards injected -->
+      </div>
+      <div class="empty-state" id="emptyState">
+        <div class="empty-illustration">⇄</div>
+        <h3>Пока пусто</h3>
+        <p>Импортируйте текущий аккаунт из ZCode<br/>или вставьте JWT вручную.</p>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
