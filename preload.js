@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld('api', {
     rename: (id, label) => ipcRenderer.invoke('accounts:rename', { id, label }),
   },
   limits: {
-    fetch: (id) => ipcRenderer.invoke('limits:fetch', { id }),
+    fetch: (id, force) => ipcRenderer.invoke('limits:fetch', { id, force }),
   },
   switchAndLaunch: (id) => ipcRenderer.invoke('account:switchAndLaunch', { id }),
 });

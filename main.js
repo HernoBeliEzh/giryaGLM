@@ -128,13 +128,29 @@ ipcMain.handle('accounts:rename', async (_evt, { id, label }) => {
 });
 
 // Запрос лимитов для конкретного аккаунта.
-ipcMain.handle('limits:fetch', async (_evt, { id }) => {
+// Кеш на LIMITS_TTL_MS: повторные запросы того же аккаунта в течение окна
+// отдаются из памяти и не бьют по Z.ai (главный источник 429).
+// force:true — обход кеша (ручное «Обновить»).
+const LIMITS_TTL_MS = 60 * 1000;
+const limitsCache = new Map(); // id → { at, result }
+
+ipcMain.handle('limits:fetch', async (_evt, { id, force }) => {
   const accounts = store.listAccounts();
   const acc = accounts.find((a) => a.id === id);
   if (!acc) return { ok: false, error: 'Аккаунт не найден' };
+
+  // Попытка отдать кеш (если ещё жив и не запрошен принудительно).
+  if (!force) {
+    const hit = limitsCache.get(id);
+    if (hit && Date.now() - hit.at < LIMITS_TTL_MS) {
+      return { ok: true, cached: true, cachedAt: hit.at, ...hit.result };
+    }
+  }
+
   try {
     const result = await limits.fetchLimits(acc.apiKey);
-    return { ok: true, ...result };
+    limitsCache.set(id, { at: Date.now(), result });
+    return { ok: true, cached: false, fetchedAt: Date.now(), ...result };
   } catch (e) {
     return { ok: false, error: e.message || String(e) };
   }

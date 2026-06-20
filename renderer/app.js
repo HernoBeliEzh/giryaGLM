@@ -41,11 +41,11 @@
 
   // ---------- Рендер ----------
 
-  async function refresh() {
+  async function refresh(forceLimits) {
     try {
       const data = await api.accounts.list();
       renderStatus(data.zcodeRunning);
-      renderList(data.accounts, data.activeId);
+      renderList(data.accounts, data.activeId, forceLimits);
     } catch (e) {
       showToast('Не удалось загрузить список: ' + (e.message || e), 'error');
     }
@@ -57,7 +57,7 @@
     $('#statusText').textContent = running ? 'ZCode запущен' : 'ZCode не запущен';
   }
 
-  function renderList(accounts, activeId) {
+  function renderList(accounts, activeId, forceLimits) {
     const list = $('#accountsList');
     const empty = $('#emptyState');
     list.innerHTML = '';
@@ -69,14 +69,14 @@
     empty.classList.add('hidden');
 
     accounts.forEach((acc, i) => {
-      const card = buildCard(acc, activeId);
+      const card = buildCard(acc, activeId, forceLimits);
       // Лёгкая staggered-задержка для каскадного появления.
       card.style.animationDelay = (i * 60) + 'ms';
       list.appendChild(card);
     });
   }
 
-  function buildCard(acc, activeId) {
+  function buildCard(acc, activeId, forceLimits) {
     const isActive = acc.id === activeId;
     const card = document.createElement('div');
     card.className = 'card' + (isActive ? ' active' : '');
@@ -104,7 +104,7 @@
     card.querySelector('.act-delete').addEventListener('click', () => onDelete(acc));
 
     // Лимиты подгружаем автоматически для всех карточек сразу.
-    onLoadLimits(card, acc.id);
+    onLoadLimits(card, acc.id, forceLimits);
 
     return card;
   }
@@ -136,13 +136,16 @@
     }
   }
 
-  async function onLoadLimits(card, id) {
+  async function onLoadLimits(card, id, force) {
     const area = card.querySelector('.limits-area');
     if (loadingSet.has(id)) return;
     loadingSet.add(id);
-    area.innerHTML = `<div class="loading-text">Загрузка лимитов…</div>`;
+    // При принудительном обновлении показываем спиннер, иначе (кеш) — тихо.
+    if (force || !area.querySelector('.limits')) {
+      area.innerHTML = `<div class="loading-text">Загрузка лимитов…</div>`;
+    }
 
-    const res = await api.limits.fetch(id);
+    const res = await api.limits.fetch(id, !!force);
     loadingSet.delete(id);
 
     if (!res.ok) {
@@ -153,6 +156,13 @@
       area.innerHTML = `<div class="loading-text">Лимиты не найдены (нет активного плана).</div>`;
       return;
     }
+
+    // Откуда данные: только что с сервера или из кеша.
+    const stamp = res.fetchedAt || res.cachedAt || Date.now();
+    const ageSec = Math.max(0, Math.round((Date.now() - stamp) / 1000));
+    const src = res.cached
+      ? (ageSec < 5 ? 'из кеша' : `из кеша ${ageSec}с назад`)
+      : 'обновлено';
 
     let html = '<div class="limits">';
     res.balances.forEach((b) => {
@@ -169,7 +179,7 @@
           <div class="bar"><span class="${cls}" data-width="${pct}"></span></div>
         </div>`;
     });
-    html += `<div class="limit-hint">${escapeHtml(fmtReset(res.expiresAt))}</div>`;
+    html += `<div class="limit-hint">${escapeHtml(fmtReset(res.expiresAt))} · ${escapeHtml(src)}</div>`;
     html += '</div>';
     area.innerHTML = html;
 
@@ -242,7 +252,9 @@
   // ---------- Привязка событий ----------
 
   $('#importBtn').addEventListener('click', onImportCurrent);
-  $('#refreshBtn').addEventListener('click', refresh);
+  // «Обновить» — принудительный обход кеша: перерисовываем список и заново
+  // запрашиваем лимиты force=true (но всё равно по очереди через очередь).
+  $('#refreshBtn').addEventListener('click', () => refresh(true));
   $('#addManualBtn').addEventListener('click', onAddManual);
 
   $('#toggleManualBtn').addEventListener('click', () => {
