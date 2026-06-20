@@ -1,6 +1,6 @@
 {
   "name": "girya-glm",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "ГиряGLM — лёгкая программа для смены аккаунтов в ZCode desktop с показом лимитов GLM-5.2 / GLM-5-Turbo",
   "productName": "ГиряGLM",
   "main": "main.js",

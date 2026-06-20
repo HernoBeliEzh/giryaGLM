@@ -15,6 +15,7 @@ function logRenderer(msg) {
 const store = require('./lib/store');
 const config = require('./lib/config');
 const limits = require('./lib/limits');
+const credentials = require('./lib/credentials');
 const zcode = require('./lib/zcode');
 
 let mainWindow = null;
@@ -56,12 +57,20 @@ function createWindow() {
   });
 }
 
+// ---------- Активный аккаунт ----------
+// При входе через chat.z.ai (OAuth) «каноничный» активный JWT лежит
+// в credentials.json (enc:v1). config.json ZCode переписывает из него
+// при старте. Поэтому правду спрашиваем в credentials, с фолбэком на config.
+function getActiveApiKey() {
+  return credentials.getCurrentJwt() || config.getCurrentApiKey();
+}
+
 // ---------- IPC-обработчики ----------
 
-// Список аккаунтов + какой сейчас активен (совпадает с config.json).
+// Список аккаунтов + какой сейчас активен.
 ipcMain.handle('accounts:list', async () => {
   const accounts = store.listAccounts();
-  const currentKey = config.getCurrentApiKey();
+  const currentKey = getActiveApiKey();
   const currentId = currentKey ? store.makeId(currentKey) : null;
   return {
     accounts,
@@ -70,11 +79,11 @@ ipcMain.handle('accounts:list', async () => {
   };
 });
 
-// Импорт текущего аккаунта прямо из config.json ZCode.
+// Импорт текущего аккаунта (JWT берём из credentials — источник правды).
 ipcMain.handle('accounts:importCurrent', async () => {
-  const apiKey = config.getCurrentApiKey();
+  const apiKey = getActiveApiKey();
   if (!apiKey) {
-    return { ok: false, error: 'В config.json ZCode нет активного apiKey' };
+    return { ok: false, error: 'Не найден активный JWT (ни в credentials.json, ни в config.json)' };
   }
   if (!limits.isValidJwt(apiKey)) {
     return { ok: false, error: 'Текущий apiKey не похож на валидный JWT' };
@@ -131,7 +140,10 @@ ipcMain.handle('limits:fetch', async (_evt, { id }) => {
   }
 });
 
-// Главная операция: закрыть ZCode → подменить apiKey → запустить ZCode.
+// Главная операция: закрыть ZCode → подменить аккаунт → запустить ZCode.
+// Меняем в двух местах одновременно:
+//   1) credentials.json (zcodejwttoken) — источник правды при OAuth-логине;
+//   2) config.json (provider...apiKey) — закэшированное значение.
 ipcMain.handle('account:switchAndLaunch', async (_evt, { id }) => {
   const accounts = store.listAccounts();
   const acc = accounts.find((a) => a.id === id);
@@ -143,20 +155,28 @@ ipcMain.handle('account:switchAndLaunch', async (_evt, { id }) => {
   // 1. Закрываем запущенный ZCode.
   try {
     await zcode.killZcode();
-    // Небольшая пауза, чтобы OS освободила файл config.json.
+    // Пауза, чтобы OS освободила config.json и credentials.json.
     await new Promise((r) => setTimeout(r, 600));
   } catch (e) {
     return { ok: false, error: 'Не удалось закрыть ZCode: ' + (e.message || e) };
   }
 
-  // 2. Меняем apiKey в config.json (с автоматическим .bak).
+  // 2. Подменяем активный аккаунт в credentials.json (главное при OAuth).
+  try {
+    credentials.setActiveAccount({ jwt: acc.apiKey });
+  } catch (e) {
+    return { ok: false, error: 'Не удалось записать credentials.json: ' + (e.message || e) };
+  }
+
+  // 3. Дублируем ключ в config.json (на случай, если ZCode читает оттуда).
   try {
     config.setCurrentApiKey(acc.apiKey);
   } catch (e) {
-    return { ok: false, error: 'Не удалось записать config.json: ' + (e.message || e) };
+    // config.json не критичен — credentials.json уже заменён.
+    console.warn('config.json update failed (non-fatal):', e.message);
   }
 
-  // 3. Запускаем ZCode.exe.
+  // 4. Запускаем ZCode.exe.
   try {
     await zcode.launchZcode();
   } catch (e) {
